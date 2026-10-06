@@ -27,6 +27,12 @@ function rangeFor(id: PresetId): { from: string; to: string } {
   return { from: isoDay(from), to: isoDay(today) };
 }
 
+/** "01 Sep 2026 – 06 Oct 2026", so it's explicit which dates a preset covers. */
+function rangeLabel(id: PresetId): string {
+  const { from, to } = rangeFor(id);
+  return `${formatCell({ key: "", label: "", type: "date" }, from)} – ${formatCell({ key: "", label: "", type: "date" }, to)}`;
+}
+
 const DEFAULT_VISIBLE = COLUMNS.filter((c) => c.def).map((c) => c.key);
 const RIGHT_ALIGNED = new Set(["money", "num", "int"]);
 
@@ -151,7 +157,9 @@ export default function OrdersTable() {
         <div>
           <div className="page-title">Assisted Orders</div>
           <div className="page-sub">
-            {loading ? "Loading orders…" : `${view.length.toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} orders`}
+            {loading
+              ? "Loading orders…"
+              : `${view.length.toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} orders · ${rangeLabel(preset)}`}
           </div>
         </div>
       </div>
@@ -190,6 +198,7 @@ export default function OrdersTable() {
       </div>
 
       <div className="tabs">
+        <span className="tabs-label">Order date</span>
         {PRESETS.map((p) => (
           <button
             type="button"

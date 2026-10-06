@@ -47,16 +47,16 @@ export async function GET(req: Request) {
   }
 
   try {
+    // from/to are strictly YYYY-MM-DD (validated above), so inlining them as DATE literals is injection-safe.
+    // Typed query parameters silently matched zero rows against this view.
     const select = COLUMNS.map((c) => `\`${c.key}\``).join(", ");
     const [rows] = await getBigQuery().query({
       query: `
         SELECT ${select}
         FROM ${ordersView()}
-        WHERE \`date\` BETWEEN @from AND @to
+        WHERE \`date\` BETWEEN DATE '${from}' AND DATE '${to}'
         ORDER BY \`date\` DESC, sales_person ASC
-      `,
-      params: { from, to },
-      types: { from: "DATE", to: "DATE" }
+      `
     });
     const payload: Payload = {
       rows: rows.map((r: Record<string, unknown>) => COLUMNS.map((c) => plain(r[c.key]))),
