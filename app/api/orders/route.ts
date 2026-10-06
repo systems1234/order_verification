@@ -1,9 +1,8 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
-import { getBigQuery, ordersView } from "@/lib/bigquery";
+import { getBigQuery, getSchema, ordersView, ordersViewId, parseTableId } from "@/lib/bigquery";
 import { plain, type Cell } from "@/lib/bqvalue";
-import { COLUMNS } from "@/lib/columns";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -12,6 +11,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface Payload {
+  columns: { key: string; type: string }[];
   rows: Cell[][];
   fetchedAt: string;
 }
@@ -42,17 +42,22 @@ export async function GET(req: Request) {
   try {
     // from/to are strictly YYYY-MM-DD (validated above), so inlining them as DATE literals is injection-safe.
     // Typed query parameters silently matched zero rows against this view.
-    const select = COLUMNS.map((c) => `\`${c.key}\``).join(", ");
-    const [rows] = await getBigQuery().query({
-      query: `
-        SELECT ${select}
-        FROM ${ordersView()}
-        WHERE \`date\` BETWEEN DATE '${from}' AND DATE '${to}'
-        ORDER BY \`date\` DESC, sales_person ASC
-      `
-    });
+    const { dataset, table } = parseTableId(ordersViewId());
+    // SELECT * + live schema: a column added to the view appears in the app immediately.
+    const [[rows], fields] = await Promise.all([
+      getBigQuery().query({
+        query: `
+          SELECT *
+          FROM ${ordersView()}
+          WHERE \`date\` BETWEEN DATE '${from}' AND DATE '${to}'
+          ORDER BY \`date\` DESC
+        `
+      }),
+      getSchema(dataset, table)
+    ]);
     const payload: Payload = {
-      rows: rows.map((r: Record<string, unknown>) => COLUMNS.map((c) => plain(r[c.key]))),
+      columns: fields.map((f) => ({ key: f.name, type: f.type })),
+      rows: rows.map((r: Record<string, unknown>) => fields.map((f) => plain(r[f.name]))),
       fetchedAt: new Date().toISOString()
     };
     cache.set(key, { at: Date.now(), payload });

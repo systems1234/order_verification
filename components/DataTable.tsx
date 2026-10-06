@@ -25,19 +25,23 @@ function CellView({ col, value }: { col: Col; value: Cell }) {
 interface Props {
   cols: Col[];
   rows: Cell[][];
-  /** localStorage key remembering which columns the user picked. */
+  /** localStorage key remembering which columns the user hid. */
   storageKey: string;
   searchPlaceholder: string;
-  /** Column keys shown by default; omit to show every column. */
-  defaultVisible?: string[];
+  /**
+   * Column keys hidden by default. Tracking *hidden* (not shown) columns means a column added to the
+   * view later is visible straight away instead of waiting in the Columns menu.
+   */
+  defaultHidden?: string[];
+  /** Optional per-row button column pinned to the left (e.g. Review / Edit). `index` is the row's index in `rows`. */
+  rowAction?: { header: string; render: (index: number) => React.ReactNode };
   /** Extra buttons rendered between the search box and the Columns menu. */
   tools?: React.ReactNode;
 }
 
 /** Search + sortable columns + column picker + pager, shared by every table in the app. */
-export default function DataTable({ cols, rows, storageKey, searchPlaceholder, defaultVisible, tools }: Props) {
-  const fallback = useMemo(() => defaultVisible ?? cols.map((c) => c.key), [defaultVisible, cols]);
-  const [visible, setVisible] = useState<string[]>(fallback);
+export default function DataTable({ cols, rows, storageKey, searchPlaceholder, defaultHidden, rowAction, tools }: Props) {
+  const [hidden, setHidden] = useState<string[]>(defaultHidden ?? []);
   const [colMenu, setColMenu] = useState(false);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
@@ -48,19 +52,16 @@ export default function DataTable({ cols, rows, storageKey, searchPlaceholder, d
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
-      if (Array.isArray(saved)) {
-        const valid = saved.filter((k) => cols.some((c) => c.key === k));
-        if (valid.length) setVisible(valid);
-      }
+      if (Array.isArray(saved)) setHidden(saved.filter((k) => typeof k === "string"));
     } catch {}
-  }, [storageKey, cols]);
+  }, [storageKey]);
 
   useEffect(() => setPage(0), [rows]);
 
   const toggleColumn = (key: string) => {
-    setVisible((cur) => {
+    setHidden((cur) => {
       const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
-      if (next.length === 0) return cur; // keep at least one
+      if (cols.every((c) => next.includes(c.key))) return cur; // keep at least one column visible
       try {
         localStorage.setItem(storageKey, JSON.stringify(next));
       } catch {}
@@ -78,7 +79,7 @@ export default function DataTable({ cols, rows, storageKey, searchPlaceholder, d
     return () => document.removeEventListener("mousedown", onDown);
   }, [colMenu]);
 
-  const shownCols = useMemo(() => cols.filter((c) => visible.includes(c.key)), [cols, visible]);
+  const shownCols = useMemo(() => cols.filter((c) => !hidden.includes(c.key)), [cols, hidden]);
 
   // Search covers every column, not just the visible ones.
   const haystacks = useMemo(
@@ -130,7 +131,7 @@ export default function DataTable({ cols, rows, storageKey, searchPlaceholder, d
               {cols.map((c) => (
                 <button type="button" key={c.key} className="pop-item" onClick={() => toggleColumn(c.key)}>
                   <span>{c.label}</span>
-                  <span className="chk">{visible.includes(c.key) ? "✓" : ""}</span>
+                  <span className="chk">{hidden.includes(c.key) ? "" : "✓"}</span>
                 </button>
               ))}
             </div>
@@ -149,6 +150,7 @@ export default function DataTable({ cols, rows, storageKey, searchPlaceholder, d
             <table className="grid">
               <thead>
                 <tr>
+                  {rowAction && <th className="act">{rowAction.header}</th>}
                   {shownCols.map((c) => (
                     <th
                       key={c.key}
@@ -165,6 +167,7 @@ export default function DataTable({ cols, rows, storageKey, searchPlaceholder, d
               <tbody>
                 {pageRows.map((ri) => (
                   <tr key={ri}>
+                    {rowAction && <td className="act">{rowAction.render(ri)}</td>}
                     {shownCols.map((c) => {
                       const v = rows[ri][cols.indexOf(c)];
                       const cls = [

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { COLUMNS } from "@/lib/columns";
+import { COLUMNS, resolveCol, type Col } from "@/lib/columns";
 import { formatCell, isoDay } from "@/lib/format";
 import type { Cell } from "@/lib/bqvalue";
 import DataTable from "./DataTable";
@@ -33,10 +33,12 @@ function rangeLabel(id: PresetId): string {
   return `${formatCell(DATE_COL, from)} – ${formatCell(DATE_COL, to)}`;
 }
 
-const DEFAULT_VISIBLE = COLUMNS.filter((c) => c.def).map((c) => c.key);
+/** Known columns not marked `def` start hidden; anything new in the view starts visible. */
+const DEFAULT_HIDDEN = COLUMNS.filter((c) => !c.def).map((c) => c.key);
 
 export default function OrdersTable() {
   const [preset, setPreset] = useState<PresetId>("30");
+  const [cols, setCols] = useState<Col[]>([]);
   const [rows, setRows] = useState<Cell[][]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +55,7 @@ export default function OrdersTable() {
       const body = await res.json();
       if (mine !== reqId.current) return; // a newer request superseded this one
       if (!res.ok) throw new Error(body.error || "Request failed");
+      setCols((body.columns as { key: string; type: string }[]).map((c) => resolveCol(c.key, c.type)));
       setRows(body.rows);
       setFetchedAt(body.fetchedAt);
     } catch (e) {
@@ -109,10 +112,10 @@ export default function OrdersTable() {
       ) : (
         !error && (
           <DataTable
-            cols={COLUMNS}
+            cols={cols}
             rows={rows}
-            storageKey="ov.orders.columns"
-            defaultVisible={DEFAULT_VISIBLE}
+            storageKey="ov.orders.hidden"
+            defaultHidden={DEFAULT_HIDDEN}
             searchPlaceholder="Search by order no., customer, sales person, ticket…"
             tools={
               <button type="button" className="btn-tool" onClick={() => load(preset, true)}>

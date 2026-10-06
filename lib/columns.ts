@@ -1,5 +1,5 @@
 /** Shared by the API route (select order) and the table (rendering). Order = view column order. */
-export type ColType = "text" | "money" | "num" | "int" | "date" | "datetime" | "timestamp" | "bool" | "flag";
+export type ColType = "text" | "money" | "num" | "int" | "date" | "datetime" | "timestamp" | "instant" | "bool" | "flag";
 
 export interface Col {
   key: string;
@@ -71,7 +71,16 @@ const EXTRA: Record<string, Col> = {
   purchase_date: { key: "purchase_date", label: "Purchase date", type: "date" },
   amount: { key: "amount", label: "Amount", type: "money" },
   current_status: { key: "current_status", label: "Current status", type: "text" },
-  newest_order_number: { key: "newest_order_number", label: "Newest order no.", type: "text", mono: true }
+  newest_order_number: { key: "newest_order_number", label: "Newest order no.", type: "text", mono: true },
+  // Review-table fields. created_at / updated_at are real instants (CURRENT_TIMESTAMP), unlike the view's IST-as-UTC columns.
+  auditor: { key: "auditor", label: "Auditor", type: "text" },
+  decision_types: { key: "decision_types", label: "Decision type", type: "text" },
+  decided_sales_person: { key: "decided_sales_person", label: "Decided sales person", type: "text" },
+  comments: { key: "comments", label: "Comments", type: "text" },
+  created_by: { key: "created_by", label: "Reviewed by", type: "text" },
+  created_at: { key: "created_at", label: "Reviewed at", type: "instant" },
+  updated_by: { key: "updated_by", label: "Last edited by", type: "text" },
+  updated_at: { key: "updated_at", label: "Last edited at", type: "instant" }
 };
 
 const BQ_TYPES: Record<string, ColType> = {

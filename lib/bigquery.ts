@@ -25,7 +25,7 @@ export function getBigQuery(): BigQuery {
 
 /** Fully-qualified, backtick-quoted view the Assisted Orders tab reads from. */
 export function ordersView(): string {
-  return `\`${process.env.ORDERS_VIEW_ID || "mis-gempundit.order_verification.assited_orders_for_verification"}\``;
+  return `\`${ordersViewId()}\``;
 }
 
 /** HR's employee directory; sign-in is gated on Project_id here. */
@@ -36,4 +36,30 @@ export function employeeTable(): string {
 /** Fully-qualified, backtick-quoted investigation view. `view` must come from the INVESTIGATIONS registry. */
 export function investigationView(view: string): string {
   return `\`${process.env.GCP_PROJECT_ID || "mis-gempundit"}.order_verification.${view}\``;
+}
+
+/** Fully-qualified, backtick-quoted review table. `table` must come from the INVESTIGATIONS registry. */
+export function reviewTable(table: string): string {
+  return `\`${process.env.GCP_PROJECT_ID || "mis-gempundit"}.order_verification.${table}\``;
+}
+
+export interface SchemaField {
+  name: string;
+  type: string;
+}
+
+/** Column names + BigQuery types of a table or view, read live so new columns show up immediately. */
+export async function getSchema(dataset: string, table: string): Promise<SchemaField[]> {
+  const [meta] = await getBigQuery().dataset(dataset).table(table).getMetadata();
+  return (meta.schema?.fields ?? []).map((f: { name: string; type: string }) => ({ name: f.name, type: f.type }));
+}
+
+/** Splits "project.dataset.table" (as configured in ORDERS_VIEW_ID). */
+export function parseTableId(id: string): { dataset: string; table: string } {
+  const parts = id.split(".");
+  return { dataset: parts[parts.length - 2], table: parts[parts.length - 1] };
+}
+
+export function ordersViewId(): string {
+  return process.env.ORDERS_VIEW_ID || "mis-gempundit.order_verification.assited_orders_for_verification";
 }

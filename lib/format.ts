@@ -16,7 +16,7 @@ function fmtDatetime(iso: string): string {
   return m ? `${fmtDate(m[1])}, ${m[2]}` : iso;
 }
 
-const tsFmt = new Intl.DateTimeFormat("en-GB", {
+const tsFmt = new Intl.DateTimeFormat("en-US", {
   // The view's TIMESTAMP columns hold the IST wall-clock time labelled as UTC (13:54 UTC == 13:54 on the
   // sheet), so format them as UTC. Converting to Asia/Kolkata would add 5h30 that isn't real.
   timeZone: "UTC",
@@ -25,7 +25,7 @@ const tsFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-  hour12: false
+  hourCycle: "h23"
 });
 
 /** TIMESTAMP: shown exactly as stored (already IST wall-clock, see tsFmt). */
@@ -33,6 +33,24 @@ function fmtTimestamp(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const p = Object.fromEntries(tsFmt.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
+}
+
+const instantFmt = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Kolkata",
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23"
+});
+
+/** A real instant (e.g. CURRENT_TIMESTAMP): shown in IST. */
+function fmtInstant(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = Object.fromEntries(instantFmt.formatToParts(d).map((x) => [x.type, x.value]));
   return `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
 }
 
@@ -48,6 +66,8 @@ export function formatCell(col: Col, v: Cell): string {
       return fmtDatetime(String(v));
     case "timestamp":
       return fmtTimestamp(String(v));
+    case "instant":
+      return fmtInstant(String(v));
     case "money":
       return `₹${moneyFmt.format(Number(v))}`;
     case "num":
