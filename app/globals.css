@@ -272,3 +272,10 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; }
 }
 
 .tabs-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--g-400); margin-right: 4px; }
+
+.tab .count.err { background: var(--overdue-bg); color: var(--overdue); }
+.case-note {
+  font-size: 13px; line-height: 1.5; color: var(--g-600); background: var(--surface-alt);
+  border: 1px solid var(--line-soft); border-radius: 11px; padding: 10px 14px; margin-bottom: 14px;
+}
+.link-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }

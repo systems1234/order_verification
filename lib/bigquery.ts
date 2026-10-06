@@ -32,3 +32,8 @@ export function ordersView(): string {
 export function employeeTable(): string {
   return `\`${process.env.EMPLOYEE_DATA_TABLE_ID || "mis-gempundit.gempundit_db.employee"}\``;
 }
+
+/** Fully-qualified, backtick-quoted investigation view. `view` must come from the INVESTIGATIONS registry. */
+export function investigationView(view: string): string {
+  return `\`${process.env.GCP_PROJECT_ID || "mis-gempundit"}.order_verification.${view}\``;
+}

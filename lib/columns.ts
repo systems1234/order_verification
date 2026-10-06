@@ -65,3 +65,31 @@ export const COLUMNS: Col[] = [
   { key: "budget_team_mismatch_flag", label: "Budget / team mismatch", type: "flag", def: true },
   { key: "invalid_sales_team_flag", label: "Invalid sales team", type: "flag", def: true }
 ];
+
+/** Labels/types for columns that only appear in the investigation views (e.g. the unassisted-orders view). */
+const EXTRA: Record<string, Col> = {
+  purchase_date: { key: "purchase_date", label: "Purchase date", type: "date" },
+  amount: { key: "amount", label: "Amount", type: "money" },
+  current_status: { key: "current_status", label: "Current status", type: "text" },
+  newest_order_number: { key: "newest_order_number", label: "Newest order no.", type: "text", mono: true }
+};
+
+const BQ_TYPES: Record<string, ColType> = {
+  TIMESTAMP: "timestamp",
+  DATETIME: "datetime",
+  DATE: "date",
+  FLOAT: "num",
+  FLOAT64: "num",
+  INTEGER: "int",
+  INT64: "int",
+  BOOLEAN: "bool",
+  BOOL: "bool"
+};
+
+/** Column definition for a result column: known labels first, then BigQuery's own type, then a humanised key. */
+export function resolveCol(key: string, bqType: string): Col {
+  const known = COLUMNS.find((c) => c.key === key) ?? EXTRA[key];
+  if (known) return known;
+  const label = key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  return { key, label, type: BQ_TYPES[bqType] ?? "text" };
+}

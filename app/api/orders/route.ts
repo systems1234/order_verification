@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { getBigQuery, ordersView } from "@/lib/bigquery";
+import { plain, type Cell } from "@/lib/bqvalue";
 import { COLUMNS } from "@/lib/columns";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,6 @@ export const maxDuration = 60;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
-type Cell = string | number | boolean | null;
 interface Payload {
   rows: Cell[][];
   fetchedAt: string;
@@ -21,13 +21,6 @@ interface Payload {
  * date range for a few minutes (per warm instance); "Refresh" in the UI sends fresh=1.
  */
 const cache = new Map<string, { at: number; payload: Payload }>();
-
-/** BigQuery wraps DATE / TIMESTAMP / DATETIME values as { value: string }. */
-function plain(v: unknown): Cell {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "object") return String((v as { value?: unknown }).value ?? "");
-  return v as Cell;
-}
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

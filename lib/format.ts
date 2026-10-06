@@ -16,8 +16,10 @@ function fmtDatetime(iso: string): string {
   return m ? `${fmtDate(m[1])}, ${m[2]}` : iso;
 }
 
-const istFmt = new Intl.DateTimeFormat("en-GB", {
-  timeZone: "Asia/Kolkata",
+const tsFmt = new Intl.DateTimeFormat("en-GB", {
+  // The view's TIMESTAMP columns hold the IST wall-clock time labelled as UTC (13:54 UTC == 13:54 on the
+  // sheet), so format them as UTC. Converting to Asia/Kolkata would add 5h30 that isn't real.
+  timeZone: "UTC",
   day: "2-digit",
   month: "short",
   year: "numeric",
@@ -26,11 +28,11 @@ const istFmt = new Intl.DateTimeFormat("en-GB", {
   hour12: false
 });
 
-/** TIMESTAMP is UTC: shown in IST. */
+/** TIMESTAMP: shown exactly as stored (already IST wall-clock, see tsFmt). */
 function fmtTimestamp(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  const p = Object.fromEntries(istFmt.formatToParts(d).map((x) => [x.type, x.value]));
+  const p = Object.fromEntries(tsFmt.formatToParts(d).map((x) => [x.type, x.value]));
   return `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
 }
 
