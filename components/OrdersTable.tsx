@@ -149,7 +149,7 @@ export default function OrdersTable() {
     <div style={{ animation: "fadeUp .3s ease both" }}>
       <div className="page-head">
         <div>
-          <div className="page-title">Ossited Orders</div>
+          <div className="page-title">Assisted Orders</div>
           <div className="page-sub">
             {loading ? "Loading orders…" : `${view.length.toLocaleString("en-IN")} of ${rows.length.toLocaleString("en-IN")} orders`}
           </div>

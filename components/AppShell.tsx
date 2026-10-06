@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 
 /** Add a row here to add a tab to the vertical nav. */
-const TABS = [{ href: "/orders", label: "Ossited Orders" }];
+const TABS = [{ href: "/orders", label: "Assisted Orders" }];
 
 function initials(name?: string | null): string {
   if (!name) return "?";
