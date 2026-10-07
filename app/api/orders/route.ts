@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
-import { getBigQuery, getSchema, ordersView, ordersViewId, parseTableId } from "@/lib/bigquery";
+import { getBigQuery, getTableInfo, ordersView, ordersViewId, parseTableId } from "@/lib/bigquery";
 import { plain, type Cell } from "@/lib/bqvalue";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +14,8 @@ interface Payload {
   columns: { key: string; type: string }[];
   rows: Cell[][];
   fetchedAt: string;
+  /** When the source table was last refreshed (null for a plain view). */
+  refreshedAt: string | null;
 }
 
 /**
@@ -44,7 +46,7 @@ export async function GET(req: Request) {
     // Typed query parameters silently matched zero rows against this view.
     const { dataset, table } = parseTableId(ordersViewId());
     // SELECT * + live schema: a column added to the view appears in the app immediately.
-    const [[rows], fields] = await Promise.all([
+    const [[rows], info] = await Promise.all([
       getBigQuery().query({
         query: `
           SELECT *
@@ -53,12 +55,14 @@ export async function GET(req: Request) {
           ORDER BY \`date\` DESC
         `
       }),
-      getSchema(dataset, table)
+      getTableInfo(dataset, table)
     ]);
+    const fields = info.fields;
     const payload: Payload = {
       columns: fields.map((f) => ({ key: f.name, type: f.type })),
       rows: rows.map((r: Record<string, unknown>) => fields.map((f) => plain(r[f.name]))),
-      fetchedAt: new Date().toISOString()
+      fetchedAt: new Date().toISOString(),
+      refreshedAt: info.lastModified
     };
     cache.set(key, { at: Date.now(), payload });
     return NextResponse.json({ ...payload, cached: false });

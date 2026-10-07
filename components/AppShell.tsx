@@ -20,12 +20,22 @@ const TABS = [
     )
   },
   {
-    href: "/investigations",
-    label: "Investigations",
+    href: "/order-investigations",
+    label: "Order Investigations",
     icon: (
       <svg {...ICON_PROPS}>
         <circle cx="11" cy="11" r="7" />
         <path d="M21 21l-4.3-4.3" />
+      </svg>
+    )
+  },
+  {
+    href: "/lead-investigations",
+    label: "Lead Investigations",
+    icon: (
+      <svg {...ICON_PROPS}>
+        <circle cx="9" cy="8" r="3.5" />
+        <path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6M16 4.5a3.5 3.5 0 010 7M18 14.3c2 .8 3.5 2.6 3.5 5.2" />
       </svg>
     )
   }

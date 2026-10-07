@@ -1,4 +1,6 @@
--- Investigation views for the Order Verification app (run AFTER investigation_reviews.sql).
+-- Order investigation views (run AFTER investigation_reviews.sql).
+-- They read assited_orders_for_verification_snapshot (refreshed weekly by a scheduled query, see
+-- assisted_orders_snapshot.sql) instead of the heavy assited_orders_for_verification view, so they load fast.
 -- Source: the Google Sheet QUERY() formulas, re-pointed at the view's column NAMES (the sheet's column order
 -- differs from the view at positions 47-49). #4 is skipped (reads Lead_Details).
 -- #1.2.1 / #1.3: the sheet conditions pointed at the wrong columns; this is a best-effort reading to verify.
@@ -20,7 +22,7 @@ SELECT
   payment_method,
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND username_frontend IS NULL
   AND order_type_in_mtd_form != 'COD-30'
@@ -51,7 +53,7 @@ SELECT
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp,
   diff_min_ticket_created_vs_02_pending_approval
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND username_frontend IS NULL
   AND order_type_in_mtd_form != 'COD-30'
@@ -82,7 +84,7 @@ SELECT
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp,
   diff_min_ticket_created_vs_02_pending_approval
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND order_type_in_mtd_form != 'COD-30'
   AND first_connect_time_true_false = FALSE
@@ -115,7 +117,7 @@ SELECT
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp,
   diff_min_ticket_created_vs_02_pending_approval
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND order_type_in_mtd_form != 'COD-30'
   AND first_connect_time_true_false = FALSE
@@ -146,7 +148,7 @@ SELECT
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp,
   diff_min_ticket_created_vs_02_pending_approval
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND username_frontend IS NULL
   AND order_type_in_mtd_form = 'COD-30'
@@ -177,7 +179,7 @@ SELECT
   order_type_in_mtd_form,
   pending_approval_02_step_timestamp,
   diff_min_ticket_created_vs_02_pending_approval
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE payment_method = 'cashondelivery'
   AND username_frontend IS NULL
   AND total_amount < 50000
@@ -203,7 +205,7 @@ SELECT
   username_frontend,
   lead_sources,
   diff_min_1st_connect_vs_10_order_approved
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE STRPOS(ticket_id_text, 'CHQ-') > 0
   AND username_frontend IS NULL
   AND first_connect_time_true_false = TRUE
@@ -229,7 +231,7 @@ SELECT
   mtd_form_filled_timestamp,
   username_frontend,
   lead_sources
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE order_limit_team_wise_investigate = 'Investigate'
   AND order_date_time >= TIMESTAMP '2026-01-01 00:00:00'
   /* Cases already reviewed in the app (saved to inv_3_reviews) drop out of this view. Keep this clause when editing. */
@@ -254,7 +256,7 @@ SELECT
   username_frontend,
   lead_sources,
   payment_method
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE invoice_status <> 'Paid'
   AND STRPOS(tickets_id, 'CHQ-') > 0
   AND current_order_status IN (
@@ -291,7 +293,7 @@ SELECT
   lead_sources,
   payment_method,
   current_order_status
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE invoice_status <> 'Paid'
   AND STRPOS(tickets_id, 'CHQ-') > 0
   AND current_order_status NOT IN (
@@ -339,7 +341,7 @@ SELECT
   lead_sources,
   order_phone_number_1,
   lead_phone_number
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE STRPOS(tickets_id, 'CHQ-') > 0
   AND username_frontend IS NULL
   AND order_phone_ne_lead_phone = FALSE
@@ -365,7 +367,7 @@ SELECT
   mtd_form_filled_timestamp,
   first_connect_time_true_false,
   lead_sources
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE ticket_created_at IS NULL
   AND tickets_id IS NOT NULL
   AND STRPOS(tickets_id, 'CHQ-') > 0
@@ -415,7 +417,7 @@ SELECT
   final_assigned_to_name,
   helper_budget,
   assigned_team_acc_to_budget
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE team <> assigned_to_team
   AND name_as_per_lead_budget IS NOT NULL
   AND order_date_time >= TIMESTAMP '2026-05-01 00:00:00'
@@ -450,7 +452,7 @@ SELECT
   final_assigned_to_name,
   helper_budget,
   assigned_team_acc_to_budget
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE invalid_sales_team_flag IS NOT NULL
   AND helper_budget IS NOT NULL
   AND order_date_time >= TIMESTAMP '2026-05-01 00:00:00'
@@ -483,7 +485,7 @@ SELECT
   current_order_status,
   lead_created_at,
   final_assigned_to_name
-FROM `mis-gempundit.order_verification.assited_orders_for_verification` AS o
+FROM `mis-gempundit.order_verification.assited_orders_for_verification_snapshot` AS o
 WHERE ticket_id_beyond_90_days IS NOT NULL
   AND `date` >= DATE '2026-01-01'
   AND tickets_id IS NOT NULL

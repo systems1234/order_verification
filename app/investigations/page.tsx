@@ -1,10 +1,6 @@
-import AppShell from "@/components/AppShell";
-import InvestigationsView from "@/components/InvestigationsView";
+import { redirect } from "next/navigation";
 
-export default function InvestigationsPage() {
-  return (
-    <AppShell>
-      <InvestigationsView />
-    </AppShell>
-  );
+/** The tab was renamed to Order Investigations; keep old links working. */
+export default function InvestigationsRedirect() {
+  redirect("/order-investigations");
 }

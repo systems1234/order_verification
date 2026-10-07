@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { resolveCol, type Col } from "@/lib/columns";
 import { formatCell } from "@/lib/format";
-import { INVESTIGATIONS, type Investigation } from "@/lib/investigations";
+import { investigationsIn, type Investigation, type InvestigationGroup } from "@/lib/investigations";
 import type { Cell } from "@/lib/bqvalue";
 import DataTable from "./DataTable";
 import ReviewModal, { type ReviewFieldValues } from "./ReviewModal";
@@ -13,6 +13,8 @@ interface Flagged {
   cols: Col[];
   rows: Cell[][];
   fetchedAt: string;
+  /** Last refresh of the snapshot behind this case (order cases only). */
+  refreshedAt: string | null;
 }
 
 interface Reviewed {
@@ -23,12 +25,15 @@ interface Reviewed {
   fetchedAt: string;
 }
 
-/** How many investigations "Count all" runs at once; each one re-runs the heavy base view. */
-const COUNT_ALL_CONCURRENCY = 2;
+/** How many cases are loaded at once when counting every case. */
+const COUNT_ALL_CONCURRENCY = 3;
+const INSTANT_COL: Col = { key: "", label: "", type: "instant" };
 
 const AUDIT_FIELDS = ["auditor", "decision_types", "decided_sales_person", "comments"];
 const AUDIT_META = ["created_by", "created_at", "updated_by", "updated_at"];
-const SUMMARY_KEYS = ["oldest_order_number", "sales_person", "customer_name", "total_amount", "amount", "tickets_id"];
+const SUMMARY_KEYS = ["lead_id", "oldest_order_number", "sales_person", "customer_name", "total_amount", "amount", "tickets_id", "assignedTo", "first_assignee", "expected_category"];
+/** Other columns whose values make good suggestions for "Decided sales person". */
+const PERSON_KEYS = ["sales_person", "assignedTo", "first_assignee"];
 
 /** Reviewed table order: case identity first, then the audit fields, then the rest, then who/when. */
 function orderReviewed(cols: Col[], rows: Cell[][]): { cols: Col[]; rows: Cell[][] } {
@@ -47,9 +52,10 @@ function orderReviewed(cols: Col[], rows: Cell[][]): { cols: Col[]; rows: Cell[]
 
 type Modal = { mode: "create" | "edit"; index: number } | null;
 
-export default function InvestigationsView() {
+export default function InvestigationsView({ group, heading }: { group: InvestigationGroup; heading: string }) {
   const { data: session } = useSession();
-  const [activeId, setActiveId] = useState(INVESTIGATIONS[0].id);
+  const cases = useMemo(() => investigationsIn(group), [group]);
+  const [activeId, setActiveId] = useState(cases[0].id);
   const [tab, setTab] = useState<"flagged" | "reviewed">("flagged");
   const [flagged, setFlagged] = useState<Record<string, Flagged>>({});
   const [reviewed, setReviewed] = useState<Record<string, Reviewed>>({});
@@ -66,7 +72,7 @@ export default function InvestigationsView() {
   reviewedRef.current = reviewed;
   const inFlight = useRef(new Set<string>());
 
-  const active = INVESTIGATIONS.find((i) => i.id === activeId) as Investigation;
+  const active = cases.find((i) => i.id === activeId) as Investigation;
 
   const run = useCallback(async (flightKey: string, work: () => Promise<void>) => {
     if (inFlight.current.has(flightKey)) return;
@@ -97,7 +103,7 @@ export default function InvestigationsView() {
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || "Request failed");
         const cols = (body.columns as { key: string; type: string }[]).map((c) => resolveCol(c.key, c.type));
-        setFlagged((r) => ({ ...r, [id]: { cols, rows: body.rows, fetchedAt: body.fetchedAt } }));
+        setFlagged((r) => ({ ...r, [id]: { cols, rows: body.rows, fetchedAt: body.fetchedAt, refreshedAt: body.refreshedAt ?? null } }));
       }),
     [run]
   );
@@ -122,15 +128,24 @@ export default function InvestigationsView() {
     if (tab === "reviewed" && !reviewedRef.current[activeId]) loadReviewed(activeId);
   }, [activeId, tab, loadFlagged, loadReviewed]);
 
-  const countAll = async () => {
-    setCountingAll(true);
-    const queue = INVESTIGATIONS.map((i) => i.id).filter((id) => !flaggedRef.current[id]);
-    const worker = async () => {
-      for (let id = queue.shift(); id; id = queue.shift()) await loadFlagged(id);
-    };
-    await Promise.all(Array.from({ length: COUNT_ALL_CONCURRENCY }, worker));
-    setCountingAll(false);
-  };
+  /** Loads every case (skipping ones already loaded unless `fresh`) so each chip shows its count. */
+  const countAll = useCallback(
+    async (fresh = false) => {
+      setCountingAll(true);
+      const queue = cases.map((i) => i.id).filter((id) => fresh || !flaggedRef.current[id]);
+      const worker = async () => {
+        for (let id = queue.shift(); id; id = queue.shift()) await loadFlagged(id, fresh);
+      };
+      await Promise.all(Array.from({ length: COUNT_ALL_CONCURRENCY }, worker));
+      setCountingAll(false);
+    },
+    [cases, loadFlagged]
+  );
+
+  // Cases read from a small snapshot table now, so counting them all on arrival is cheap.
+  useEffect(() => {
+    countAll();
+  }, [countAll]);
 
   const selectCase = (id: string) => {
     setNotice(null);
@@ -167,7 +182,8 @@ export default function InvestigationsView() {
     if (!src || !src.rows[modal.index]) return null;
     const record = recordOf(src, modal.index);
     const keys = SUMMARY_KEYS.filter((k) => src.cols.some((c) => c.key === k)).slice(0, 4);
-    const useKeys = keys.length ? keys : src.cols.slice(0, 3).map((c) => c.key);
+    // Too few well-known columns (e.g. a new view): pad with the first columns so the form always shows the case.
+    const useKeys = [...keys, ...src.cols.map((c) => c.key).filter((k) => !keys.includes(k))].slice(0, keys.length >= 3 ? keys.length : 4);
     const summary = useKeys.map((k) => {
       const col = src.cols.find((c) => c.key === k) as Col;
       return { label: col.label, value: formatCell(col, record[k] ?? null) };
@@ -242,16 +258,16 @@ export default function InvestigationsView() {
     <div style={{ animation: "fadeUp .3s ease both" }}>
       <div className="page-head">
         <div>
-          <div className="page-title">Investigations</div>
-          <div className="page-sub">{INVESTIGATIONS.length} cases · counts appear once a case has been opened</div>
+          <div className="page-title">{heading}</div>
+          <div className="page-sub">{cases.length} cases</div>
         </div>
-        <button type="button" className="btn-tool" disabled={countingAll} onClick={countAll}>
-          {countingAll ? "Counting…" : "Count all"}
+        <button type="button" className="btn-tool" disabled={countingAll} onClick={() => countAll(true)}>
+          {countingAll ? "Refreshing…" : "↻ Refresh all"}
         </button>
       </div>
 
       <div className="tabs">
-        {INVESTIGATIONS.map((i) => {
+        {cases.map((i) => {
           const r = flagged[i.id];
           return (
             <button type="button" key={i.id} className={`tab ${activeId === i.id ? "sel" : ""}`} onClick={() => selectCase(i.id)}>
@@ -360,8 +376,8 @@ export default function InvestigationsView() {
 
       {tab === "flagged" && flaggedResult && !flaggedLoading && (
         <div className="foot-note">
-          {flaggedResult.rows.length.toLocaleString("en-IN")} flagged ·{" "}
-          as of {new Date(flaggedResult.fetchedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.
+          {flaggedResult.rows.length.toLocaleString("en-IN")} flagged
+          {flaggedResult.refreshedAt ? ` · source data refreshed ${formatCell(INSTANT_COL, flaggedResult.refreshedAt)} (updates weekly)` : " · live data"}.
         </div>
       )}
 
@@ -374,7 +390,7 @@ export default function InvestigationsView() {
           initial={modalData.initial}
           decisionOptions={distinct(reviewedResult, "decision_types")}
           salesOptions={Array.from(
-            new Set([...distinct(flaggedResult, "sales_person"), ...distinct(reviewedResult, "decided_sales_person")])
+            new Set([...PERSON_KEYS.flatMap((k) => distinct(flaggedResult, k)), ...distinct(reviewedResult, "decided_sales_person")])
           ).sort()}
           saving={saving}
           error={saveError}

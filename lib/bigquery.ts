@@ -61,5 +61,16 @@ export function parseTableId(id: string): { dataset: string; table: string } {
 }
 
 export function ordersViewId(): string {
-  return process.env.ORDERS_VIEW_ID || "mis-gempundit.order_verification.assited_orders_for_verification";
+  // Default = the snapshot table, refreshed weekly from the heavy assited_orders_for_verification view.
+  return process.env.ORDERS_VIEW_ID || "mis-gempundit.order_verification.assited_orders_for_verification_snapshot";
+}
+
+/** Schema plus last-modified time (ISO) of a table: for a snapshot table that is when it was last refreshed. */
+export async function getTableInfo(dataset: string, table: string): Promise<{ fields: SchemaField[]; lastModified: string | null }> {
+  const [meta] = await getBigQuery().dataset(dataset).table(table).getMetadata();
+  const ms = Number(meta.lastModifiedTime);
+  return {
+    fields: (meta.schema?.fields ?? []).map((f: { name: string; type: string }) => ({ name: f.name, type: f.type })),
+    lastModified: Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null
+  };
 }

@@ -26,6 +26,7 @@ function rangeFor(id: PresetId): { from: string; to: string } {
 }
 
 const DATE_COL = { key: "", label: "", type: "date" } as const;
+const INSTANT_COL = { key: "", label: "", type: "instant" } as const;
 
 /** "01 Sep 2026 – 06 Oct 2026", so it's explicit which dates a preset covers. */
 function rangeLabel(id: PresetId): string {
@@ -42,7 +43,7 @@ export default function OrdersTable() {
   const [rows, setRows] = useState<Cell[][]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
+  const [refreshedAt, setRefreshedAt] = useState<string | null>(null);
   const reqId = useRef(0);
 
   const load = useCallback(async (id: PresetId, fresh = false) => {
@@ -57,7 +58,7 @@ export default function OrdersTable() {
       if (!res.ok) throw new Error(body.error || "Request failed");
       setCols((body.columns as { key: string; type: string }[]).map((c) => resolveCol(c.key, c.type)));
       setRows(body.rows);
-      setFetchedAt(body.fetchedAt);
+      setRefreshedAt(body.refreshedAt ?? null);
     } catch (e) {
       if (mine !== reqId.current) return;
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -126,11 +127,8 @@ export default function OrdersTable() {
         )
       )}
 
-      {fetchedAt && !loading && (
-        <div className="foot-note">
-          Data as of {new Date(fetchedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}. Refresh to
-          re-run the view.
-        </div>
+      {refreshedAt && !loading && (
+        <div className="foot-note">Source data refreshed {formatCell(INSTANT_COL, refreshedAt)} (updates weekly).</div>
       )}
     </div>
   );
